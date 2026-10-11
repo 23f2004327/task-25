@@ -1,16 +1,5 @@
-from typing import List
- 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
- 
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+import json
+from http.server import BaseHTTPRequestHandler
  
 DATA = [
     {"region":"apac","latency_ms":135.13,"uptime_pct":97.75},
@@ -52,11 +41,6 @@ DATA = [
 ]
  
  
-class Query(BaseModel):
-    regions: List[str]
-    threshold_ms: float
- 
- 
 def percentile(values, p):
     v = sorted(values)
     k = (len(v) - 1) * p / 100
@@ -65,10 +49,9 @@ def percentile(values, p):
     return v[f] + (v[c] - v[f]) * (k - f)
  
  
-@app.post("/")
-def metrics(q: Query):
+def compute(regions, threshold):
     out = {}
-    for region in q.regions:
+    for region in regions:
         rows = [r for r in DATA if r["region"] == region]
         if not rows:
             continue
@@ -78,7 +61,40 @@ def metrics(q: Query):
             "avg_latency": sum(lat) / len(lat),
             "p95_latency": percentile(lat, 95),
             "avg_uptime": sum(up) / len(up),
-            "breaches": sum(1 for x in lat if x > q.threshold_ms),
+            "breaches": sum(1 for x in lat if x > threshold),
         }
     return {"regions": out}
+ 
+ 
+class handler(BaseHTTPRequestHandler):
+    def _cors(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "*")
+ 
+    def _send(self, code, obj):
+        body = json.dumps(obj).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self._cors()
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+ 
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self._cors()
+        self.end_headers()
+ 
+    def do_GET(self):
+        self._send(200, {"message": "POST JSON {regions, threshold_ms} to this URL"})
+ 
+    def do_POST(self):
+        try:
+            n = int(self.headers.get("Content-Length", 0))
+            q = json.loads(self.rfile.read(n) or b"{}")
+            res = compute(q.get("regions", []), float(q.get("threshold_ms", 0)))
+            self._send(200, res)
+        except Exception as e:
+            self._send(400, {"error": str(e)})
  
