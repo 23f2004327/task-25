@@ -1,10 +1,15 @@
 {
-  "builds": [
+  "builds": [{ "src": "api/index.py", "use": "@vercel/python" }],
+  "routes": [
     {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": { "includeFiles": "q-vercel-latency.json" }
-    }
-  ],
-  "routes": [{ "src": "/(.*)", "dest": "api/index.py" }]
+      "src": "/(.*)",
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "*"
+      },
+      "continue": true
+    },
+    { "src": "/(.*)", "dest": "api/index.py" }
+  ]
 }
