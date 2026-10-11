@@ -3,31 +3,24 @@ from pathlib import Path
 
 import numpy as np
 from fastapi import FastAPI, Request, Response
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 app = FastAPI()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-CORS = {
+CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "*",
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Expose-Headers": "Access-Control-Allow-Origin",
 }
 
 
 @app.middleware("http")
 async def add_cors(request: Request, call_next):
     if request.method == "OPTIONS":
-        return Response(status_code=204, headers=CORS)
+        return Response(status_code=204, headers=CORS_HEADERS)
     response = await call_next(request)
-    for k, v in CORS.items():
+    for k, v in CORS_HEADERS.items():
         response.headers[k] = v
     return response
 
@@ -38,6 +31,12 @@ DATA = json.loads((Path(__file__).parent / "telemetry.json").read_text())
 class Query(BaseModel):
     regions: list[str]
     threshold_ms: float
+
+
+@app.get("/")
+@app.get("/api")
+def health():
+    return {"status": "ok", "usage": "POST {regions: [...], threshold_ms: 180}"}
 
 
 @app.post("/")
