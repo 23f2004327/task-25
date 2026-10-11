@@ -50,9 +50,10 @@ def metrics(q: Query):
         lat = np.array([r["latency_ms"] for r in rows], dtype=float)
         up = np.array([r["uptime_pct"] for r in rows], dtype=float)
         out[region] = {
+            "region": region,
             "avg_latency": float(lat.mean()),
             "p95_latency": float(np.percentile(lat, 95)),
             "avg_uptime": float(up.mean()),
             "breaches": int((lat > q.threshold_ms).sum()),
         }
-    return out
+    return {"regions": out}
