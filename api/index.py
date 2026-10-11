@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 import numpy as np
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -14,6 +14,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+CORS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "*",
+}
+
+
+@app.middleware("http")
+async def add_cors(request: Request, call_next):
+    if request.method == "OPTIONS":
+        return Response(status_code=204, headers=CORS)
+    response = await call_next(request)
+    for k, v in CORS.items():
+        response.headers[k] = v
+    return response
+
 
 DATA = json.loads((Path(__file__).parent / "telemetry.json").read_text())
 
